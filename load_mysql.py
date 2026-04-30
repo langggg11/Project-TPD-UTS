@@ -1,114 +1,115 @@
-# -*- coding: utf-8 -*-
 """
 load_mysql.py
-Kelompok 8 - Anggota 2: Data Generator & Source Preparation
+Load drivers.csv, users.csv, locations.csv ke MySQL container.
+Jalankan setelah generate_data.py.
 
-Fungsi: Load data CSV ke MySQL source database
-Tables : drivers, users, locations
-Database: gojek_source_mysql
-
-CARA PAKAI:
-1. Pastikan MySQL sudah berjalan di localhost:3306
-2. Sesuaikan variabel di bagian CONFIG di bawah
-3. Jalankan: python load_mysql.py
+Kebutuhan:
+  pip install mysql-connector-python
 """
 
-import pandas as pd
-from sqlalchemy import create_engine, text
-import sys
+import csv
+import mysql.connector
+import os
 
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
-
-# ── CONFIG - sesuaikan dengan setup lokal ────────────────────
-MYSQL_HOST     = "localhost"
-MYSQL_PORT     = 3306
-MYSQL_USER     = "root"
-MYSQL_PASSWORD = ""           # ganti dengan password MySQL kamu
-MYSQL_DATABASE = "gojek_source_mysql"
-DATA_DIR       = "data/source"
-# ─────────────────────────────────────────────────────────────
-
-print("=" * 55)
-print("  LOAD DATA KE MYSQL - Kelompok 8")
-print("=" * 55)
-
-# Buat koneksi
-try:
-    engine = create_engine(
-        f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
-        echo=False
-    )
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    print(f"\n  [OK] Koneksi ke MySQL berhasil")
-    print(f"       Database: {MYSQL_DATABASE} @ {MYSQL_HOST}:{MYSQL_PORT}")
-except Exception as e:
-    print(f"\n  [ERROR] Gagal konek ke MySQL: {e}")
-    print(f"  Pastikan MySQL berjalan dan credential benar di bagian CONFIG")
-    sys.exit(1)
-
-# DDL - buat tabel jika belum ada
-DDL = {
-    "locations": """
-        CREATE TABLE IF NOT EXISTS locations (
-            location_id   VARCHAR(10)   PRIMARY KEY,
-            location_name VARCHAR(100)  NOT NULL,
-            city          VARCHAR(50)   NOT NULL,
-            province      VARCHAR(50)   NOT NULL,
-            latitude      DECIMAL(10,8) NOT NULL,
-            longitude     DECIMAL(11,8) NOT NULL,
-            zone_type     VARCHAR(20)   NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """,
-    "drivers": """
-        CREATE TABLE IF NOT EXISTS drivers (
-            driver_id     VARCHAR(10)  PRIMARY KEY,
-            driver_name   VARCHAR(100) NOT NULL,
-            vehicle_type  VARCHAR(20)  NOT NULL,
-            license_plate VARCHAR(20)  NOT NULL,
-            join_date     DATE         NOT NULL,
-            city          VARCHAR(50)  NOT NULL,
-            status        VARCHAR(20)  NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """,
-    "users": """
-        CREATE TABLE IF NOT EXISTS users (
-            user_id           VARCHAR(12)  PRIMARY KEY,
-            user_name         VARCHAR(100) NOT NULL,
-            registration_date DATE         NOT NULL,
-            user_segment      VARCHAR(20)  NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """,
+# ── Konfigurasi koneksi ──────────────────────
+MYSQL_CONFIG = {
+    "host":     "localhost",
+    "port":     3307,          # Host port sesuai docker-compose
+    "user":     "root",
+    "password": "root",
+    "database": "gojek_source_mysql",
 }
 
-# Load tiap tabel
-files = {
-    "locations": "locations.csv",
-    "drivers"  : "drivers.csv",
-    "users"    : "users.csv",
-}
+CSV_DIR = os.path.join("data", "source_csv")
 
-with engine.begin() as conn:
-    for table, ddl in DDL.items():
-        conn.execute(text(ddl))
-        print(f"\n  [OK] Tabel '{table}' siap")
 
-for table, filename in files.items():
-    path = f"{DATA_DIR}/{filename}"
+def load_csv(filepath):
+    with open(filepath, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return list(reader)
+
+
+def to_none(val):
+    """Konversi empty string ke None (NULL di DB)."""
+    if val is None or val == "":
+        return None
+    return val
+
+
+def load_drivers(cursor):
+    rows = load_csv(os.path.join(CSV_DIR, "drivers.csv"))
+    sql  = """
+        INSERT INTO drivers
+            (driver_id, driver_name, vehicle_type, license_plate,
+             join_date, city, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE driver_name = VALUES(driver_name)
+    """
+    data = [
+        (r["driver_id"], r["driver_name"], r["vehicle_type"],
+         to_none(r["license_plate"]), to_none(r["join_date"]),
+         to_none(r["city"]), r["status"])
+        for r in rows
+    ]
+    cursor.executemany(sql, data)
+    print(f"  ✓ drivers    : {len(data):,} rows inserted/updated")
+
+
+def load_users(cursor):
+    rows = load_csv(os.path.join(CSV_DIR, "users.csv"))
+    sql  = """
+        INSERT INTO users
+            (user_id, user_name, registration_date, user_segment)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE user_name = VALUES(user_name)
+    """
+    data = [
+        (r["user_id"], r["user_name"],
+         to_none(r["registration_date"]), r["user_segment"])
+        for r in rows
+    ]
+    cursor.executemany(sql, data)
+    print(f"  ✓ users      : {len(data):,} rows inserted/updated")
+
+
+def load_locations(cursor):
+    rows = load_csv(os.path.join(CSV_DIR, "locations.csv"))
+    sql  = """
+        INSERT INTO locations
+            (location_id, location_name, city, province,
+             latitude, longitude, zone_type)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE location_name = VALUES(location_name)
+    """
+    data = [
+        (r["location_id"], r["location_name"], r["city"],
+         to_none(r["province"]),
+         to_none(r["latitude"]), to_none(r["longitude"]),
+         to_none(r["zone_type"]))
+        for r in rows
+    ]
+    cursor.executemany(sql, data)
+    print(f"  ✓ locations  : {len(data):,} rows inserted/updated")
+
+
+def main():
+    print("=" * 50)
+    print("  Load MySQL Source — Gojek DWH")
+    print("=" * 50)
     try:
-        df = pd.read_csv(path)
-        df.to_sql(table, engine, if_exists="replace", index=False, method="multi", chunksize=500)
-        print(f"  [OK] Load {filename} -> MySQL.{table} ({len(df):,} rows)")
-    except FileNotFoundError:
-        print(f"  [ERROR] File tidak ditemukan: {path}")
-        print(f"          Jalankan generate_data.py terlebih dahulu!")
-    except Exception as e:
-        print(f"  [ERROR] Gagal load {table}: {e}")
+        conn   = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+        load_drivers(cursor)
+        load_users(cursor)
+        load_locations(cursor)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("\n  ✅  MySQL load selesai!")
+    except mysql.connector.Error as e:
+        print(f"\n  ❌  Error: {e}")
+        raise
 
-print(f"\n  [DONE] Load ke MySQL selesai!")
-print(f"  Cek di MySQL Workbench: USE {MYSQL_DATABASE};")
-print(f"  SELECT COUNT(*) FROM drivers;")
-print(f"  SELECT COUNT(*) FROM users;")
-print(f"  SELECT COUNT(*) FROM locations;")
-print("=" * 55)
+
+if __name__ == "__main__":
+    main()

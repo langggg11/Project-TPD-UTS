@@ -1,7 +1,0 @@
-payment_id,payment_method,payment_status
-PAY-001,GoPay,Success
-PAY-002,GoPay,Failed
-PAY-003,Cash,Success
-PAY-004,Cash,Pending
-PAY-005,Credit Card,Success
-PAY-006,Credit Card,Failed

@@ -1,111 +1,121 @@
-# -*- coding: utf-8 -*-
 """
 load_postgres.py
-Kelompok 8 - Anggota 2: Data Generator & Source Preparation
+Load trips_raw.csv dan payments.csv ke PostgreSQL Source container.
+Jalankan setelah generate_data.py.
 
-Fungsi: Load data CSV ke PostgreSQL source database
-Tables : trips_raw, payments
-Database: gojek_source_postgres
-
-CARA PAKAI:
-1. Pastikan PostgreSQL sudah berjalan di localhost:5432
-2. Buat database dulu: CREATE DATABASE gojek_source_postgres;
-3. Sesuaikan variabel CONFIG di bawah
-4. Jalankan: python load_postgres.py
+Kebutuhan:
+  pip install psycopg2-binary
 """
 
-import pandas as pd
-from sqlalchemy import create_engine, text
-import sys
+import csv
+import psycopg2
+import os
 
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
-
-# ── CONFIG ────────────────────────────────────────────────────
-PG_HOST     = "localhost"
-PG_PORT     = 5432
-PG_USER     = "postgres"
-PG_PASSWORD = ""          # ganti dengan password PostgreSQL kamu
-PG_DATABASE = "gojek_source_postgres"
-DATA_DIR    = "data/source"
-# ─────────────────────────────────────────────────────────────
-
-print("=" * 55)
-print("  LOAD DATA KE POSTGRESQL SOURCE - Kelompok 8")
-print("=" * 55)
-
-# Buat koneksi
-try:
-    engine = create_engine(
-        f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}",
-        echo=False
-    )
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    print(f"\n  [OK] Koneksi ke PostgreSQL berhasil")
-    print(f"       Database: {PG_DATABASE} @ {PG_HOST}:{PG_PORT}")
-except Exception as e:
-    print(f"\n  [ERROR] Gagal konek ke PostgreSQL: {e}")
-    print(f"  Pastikan PostgreSQL berjalan dan database sudah dibuat:")
-    print(f"  psql -U postgres -c \"CREATE DATABASE {PG_DATABASE};\"")
-    sys.exit(1)
-
-# DDL
-DDL = {
-    "payments": """
-        CREATE TABLE IF NOT EXISTS payments (
-            payment_id     VARCHAR(10)  PRIMARY KEY,
-            payment_method VARCHAR(50)  NOT NULL,
-            payment_status VARCHAR(20)  NOT NULL
-        );
-    """,
-    "trips_raw": """
-        CREATE TABLE IF NOT EXISTS trips_raw (
-            trip_id              VARCHAR(12)    NOT NULL,
-            driver_id            VARCHAR(10)    NOT NULL,
-            user_id              VARCHAR(12)    NOT NULL,
-            pickup_location_id   VARCHAR(10)    NOT NULL,
-            dropoff_location_id  VARCHAR(10)    NOT NULL,
-            pickup_time          TIMESTAMP      NOT NULL,
-            dropoff_time         TIMESTAMP      NOT NULL,
-            distance_km          DECIMAL(10,2)  NULL,
-            duration_minutes     INT            NULL,
-            base_fare            DECIMAL(12,2)  NULL,
-            surge_multiplier     DECIMAL(4,2)   NULL,
-            trip_status          VARCHAR(30)    NOT NULL,
-            payment_method       VARCHAR(50)    NOT NULL,
-            payment_status       VARCHAR(20)    NOT NULL
-        );
-    """,
+# ── Konfigurasi koneksi ──────────────────────
+PG_CONFIG = {
+    "host":     "localhost",
+    "port":     5434,          # Host port sesuai docker-compose
+    "user":     "postgres",
+    "password": "postgres",
+    "dbname":   "gojek_source_postgres",
 }
 
-files = {
-    "payments" : "payments.csv",
-    "trips_raw": "trips_raw.csv",
-}
+CSV_DIR = os.path.join("data", "source_csv")
 
-with engine.begin() as conn:
-    for table, ddl in DDL.items():
-        conn.execute(text(ddl))
-        print(f"\n  [OK] Tabel '{table}' siap")
 
-for table, filename in files.items():
-    path = f"{DATA_DIR}/{filename}"
+def load_csv(filepath):
+    with open(filepath, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return list(reader)
+
+
+def to_none(val):
+    if val is None or val == "" or val == "None":
+        return None
+    return val
+
+
+def to_decimal(val):
+    v = to_none(val)
+    if v is None:
+        return None
     try:
-        df = pd.read_csv(path)
-        # Drop dulu biar bisa replace (PostgreSQL tidak support if_exists='replace' dgn primary key)
-        with engine.begin() as conn:
-            conn.execute(text(f"DELETE FROM {table}"))
-        df.to_sql(table, engine, if_exists="append", index=False, method="multi", chunksize=500)
-        print(f"  [OK] Load {filename} -> PostgreSQL.{table} ({len(df):,} rows)")
-    except FileNotFoundError:
-        print(f"  [ERROR] File tidak ditemukan: {path}")
-        print(f"          Jalankan generate_data.py terlebih dahulu!")
-    except Exception as e:
-        print(f"  [ERROR] Gagal load {table}: {e}")
+        return float(v)
+    except ValueError:
+        return None
 
-print(f"\n  [DONE] Load ke PostgreSQL source selesai!")
-print(f"  Cek di psql: \\c {PG_DATABASE}")
-print(f"  SELECT COUNT(*) FROM trips_raw;")
-print(f"  SELECT COUNT(*) FROM payments;")
-print("=" * 55)
+
+def to_int(val):
+    v = to_none(val)
+    if v is None:
+        return None
+    try:
+        return int(float(v))
+    except ValueError:
+        return None
+
+
+def load_trips_raw(cursor):
+    rows = load_csv(os.path.join(CSV_DIR, "trips_raw.csv"))
+    sql  = """
+        INSERT INTO trips_raw
+            (trip_id, driver_id, user_id,
+             pickup_location_id, dropoff_location_id,
+             pickup_time, dropoff_time,
+             distance_km, duration_minutes,
+             base_fare, surge_multiplier, total_fare,
+             trip_status, payment_method, payment_status)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """
+    # Catatan: raw_trip_id adalah SERIAL — tidak perlu di-insert manual
+    data = [
+        (r["trip_id"], r["driver_id"], r["user_id"],
+         r["pickup_location_id"], r["dropoff_location_id"],
+         to_none(r["pickup_time"]), to_none(r["dropoff_time"]),
+         to_decimal(r["distance_km"]), to_int(r["duration_minutes"]),
+         to_decimal(r["base_fare"]), to_decimal(r["surge_multiplier"]),
+         to_decimal(r["total_fare"]),
+         r["trip_status"],
+         to_none(r["payment_method"]), to_none(r["payment_status"]))
+        for r in rows
+    ]
+    cursor.executemany(sql, data)
+    print(f"  ✓ trips_raw  : {len(data):,} rows inserted")
+
+
+def load_payments(cursor):
+    rows = load_csv(os.path.join(CSV_DIR, "payments.csv"))
+    # Truncate dulu agar bisa di-reload berulang kali
+    cursor.execute("TRUNCATE TABLE payments RESTART IDENTITY CASCADE")
+    sql  = """
+        INSERT INTO payments (trip_id, payment_method, payment_status)
+        VALUES (%s, %s, %s)
+    """
+    data = [
+        (r["trip_id"], r["payment_method"], r["payment_status"])
+        for r in rows
+    ]
+    cursor.executemany(sql, data)
+    print(f"  ✓ payments   : {len(data):,} rows inserted")
+
+
+def main():
+    print("=" * 50)
+    print("  Load PostgreSQL Source — Gojek DWH")
+    print("=" * 50)
+    try:
+        conn   = psycopg2.connect(**PG_CONFIG)
+        cursor = conn.cursor()
+        load_trips_raw(cursor)
+        load_payments(cursor)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("\n  ✅  PostgreSQL load selesai!")
+    except psycopg2.Error as e:
+        print(f"\n  ❌  Error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

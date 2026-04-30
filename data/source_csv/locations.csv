@@ -1,0 +1,58 @@
+location_id,location_name,city,province,latitude,longitude,zone_type
+LOC-0001,Sudirman,Jakarta,DKI Jakarta,-6.1826651,106.81985329,Commercial
+LOC-0002,Thamrin,Jakarta,DKI Jakarta,-6.14909777,106.83765819,Commercial
+LOC-0003,Kuningan,Jakarta,DKI Jakarta,-6.23520649,106.90584479,Commercial
+LOC-0004,Menteng,Jakarta,DKI Jakarta,-6.1571015,106.83228164,Industrial
+LOC-0005,Kemang,Jakarta,DKI Jakarta,-6.15293842,106.89133289,Residential
+LOC-0006,Blok M,Jakarta,DKI Jakarta,-6.10907109,106.776266,Commercial
+LOC-0007,Senayan,Jakarta,DKI Jakarta,-6.17667675,106.83357229,Commercial
+LOC-0008,Kelapa Gading,Jakarta,DKI Jakarta,-6.2800097,106.89802175,Industrial
+LOC-0009,Cibubur,Jakarta,DKI Jakarta,-6.23202209,106.82447988,
+LOC-0010,Pluit,Jakarta,DKI Jakarta,-6.24821794,106.93631193,Industrial
+LOC-0011,Grogol,Jakarta,DKI Jakarta,-6.27006715,106.90549433,Commercial
+LOC-0012,Cawang,Jakarta,DKI Jakarta,-6.19938881,106.79662958,Residential
+LOC-0013,Gubeng,Surabaya,Jawa Timur,-7.1592947,112.68477829,
+LOC-0014,Darmo,Surabaya,Jawa Timur,-7.21205241,112.80950243,Residential
+LOC-0015,Kenjeran,Surabaya,Jawa Timur,-7.17253564,112.75079645,Commercial
+LOC-0016,Semampir,Surabaya,Jawa Timur,-7.19516204,112.72064743,Commercial
+LOC-0017,Wonokromo,Surabaya,Jawa Timur,-7.18738123,112.84323369,Industrial
+LOC-0018,Genteng,Surabaya,Jawa Timur,-7.24791493,112.83236518,Industrial
+LOC-0019,Mulyorejo,Surabaya,Jawa Timur,-7.2245117,112.75744183,Industrial
+LOC-0020,Benowo,Surabaya,Jawa Timur,-7.23954408,112.78862029,Residential
+LOC-0021,Wiyung,Surabaya,Jawa Timur,-7.31226022,112.65654504,Commercial
+LOC-0022,Tambaksari,Surabaya,Jawa Timur,-7.16951199,112.71221379,Commercial
+LOC-0023,Dago,Bandung,Jawa Barat,-7.00724269,107.63743857,Commercial
+LOC-0024,Buah Batu,Bandung,Jawa Barat,-6.99620064,107.54869439,Residential
+LOC-0025,Cimahi,Bandung,Jawa Barat,-6.84135077,107.5688476,Residential
+LOC-0026,Antapani,Bandung,Jawa Barat,-6.87802366,107.62026873,Commercial
+LOC-0027,Cicendo,Bandung,Jawa Barat,-6.93364169,107.58534263,Residential
+LOC-0028,Coblong,Bandung,Jawa Barat,-6.89288837,107.70879832,Commercial
+LOC-0029,Regol,Bandung,Jawa Barat,-6.8322751,107.53048061,Commercial
+LOC-0030,Sukajadi,Bandung,Jawa Barat,-6.98669081,107.61373483,
+LOC-0031,Mandalajati,Bandung,Jawa Barat,-6.8299812,107.54274528,Commercial
+LOC-0032,Helvetia,Medan,Sumatera Utara,3.6807671,98.65146893,Commercial
+LOC-0033,Medan Kota,Medan,Sumatera Utara,3.66509001,98.62949352,Residential
+LOC-0034,Polonia,Medan,Sumatera Utara,3.56242226,98.69179643,Residential
+LOC-0035,Sunggal,Medan,Sumatera Utara,3.51533197,98.58866205,Residential
+LOC-0036,Tembung,Medan,Sumatera Utara,3.60327409,98.67072969,Industrial
+LOC-0037,Selayang,Medan,Sumatera Utara,3.62479395,98.77056745,
+LOC-0038,Simpang Lima,Semarang,Jawa Tengah,-7.05768539,110.34699666,Commercial
+LOC-0039,Banyumanik,Semarang,Jawa Tengah,-6.95745206,110.50391671,Industrial
+LOC-0040,Gajahmungkur,Semarang,Jawa Tengah,-6.97880055,110.32838597,Commercial
+LOC-0041,Tembalang,Semarang,Jawa Tengah,-7.07320574,110.51956311,Residential
+LOC-0042,Ngaliyan,Semarang,Jawa Tengah,-6.97032733,110.48458596,Residential
+LOC-0043,Panakkukang,Makassar,Sulawesi Selatan,-5.06828877,119.49753818,Commercial
+LOC-0044,Tamalate,Makassar,Sulawesi Selatan,-5.12902597,119.45578702,Industrial
+LOC-0045,Rappocini,Makassar,Sulawesi Selatan,-5.19081103,119.3456885,Commercial
+LOC-0046,Biringkanaya,Makassar,Sulawesi Selatan,-5.21622119,119.48791503,Commercial
+LOC-0047,Manggala,Makassar,Sulawesi Selatan,-5.12640328,119.47050641,
+LOC-0048,Malioboro,Yogyakarta,DI Yogyakarta,-7.72666871,110.40180172,Commercial
+LOC-0049,Kotagede,Yogyakarta,DI Yogyakarta,-7.82534962,110.37057518,Industrial
+LOC-0050,Gondokusuman,Yogyakarta,DI Yogyakarta,-7.7341724,110.35239392,Commercial
+LOC-0051,Umbulharjo,Yogyakarta,DI Yogyakarta,-7.76384893,110.31090946,Industrial
+LOC-0052,Sleman,Yogyakarta,DI Yogyakarta,-7.86605618,110.28469063,Residential
+LOC-0053,Ilir Barat,Palembang,Sumatera Selatan,-3.04656401,104.87504514,Industrial
+LOC-0054,Ilir Timur,Palembang,Sumatera Selatan,-3.06141157,104.82947334,Industrial
+LOC-0055,Seberang Ulu,Palembang,Sumatera Selatan,-3.02824919,104.77171935,Industrial
+LOC-0056,Bukit Kecil,Palembang,Sumatera Selatan,-2.94244613,104.80972814,Commercial
+LOC-0057,Kalidoni,Palembang,Sumatera Selatan,-2.88861276,104.71735438,Residential

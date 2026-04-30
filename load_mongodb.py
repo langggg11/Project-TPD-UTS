@@ -1,112 +1,78 @@
-# -*- coding: utf-8 -*-
 """
 load_mongodb.py
-Kelompok 8 - Anggota 2: Data Generator & Source Preparation
+Load app_events.json ke MongoDB container.
+Jalankan setelah generate_data.py.
 
-Fungsi: Load app_events.json ke MongoDB
-Collection : app_events
-Database   : gojek_logs
-
-CARA PAKAI:
-1. Pastikan MongoDB berjalan di localhost:27017
-2. Install pymongo: pip install pymongo
-3. Jalankan: python load_mongodb.py
+Kebutuhan:
+  pip install pymongo
 """
 
 import json
-import sys
 import os
-
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
 
 try:
     from pymongo import MongoClient, ASCENDING
     from pymongo.errors import BulkWriteError
 except ImportError:
-    print("[ERROR] pymongo tidak terinstall.")
-    print("        Jalankan: pip install pymongo")
-    sys.exit(1)
+    raise ImportError("Jalankan: pip install pymongo")
 
-# ── CONFIG ────────────────────────────────────────────────────
-MONGO_HOST       = "localhost"
-MONGO_PORT       = 27017
-MONGO_DATABASE   = "gojek_logs"
-MONGO_COLLECTION = "app_events"
-DATA_DIR         = "data/source"
-# ─────────────────────────────────────────────────────────────
+# ── Konfigurasi koneksi ──────────────────────
+MONGO_URI  = "mongodb://localhost:27017"
+DB_NAME    = "gojek_logs"
+COLLECTION = "app_events"
 
-print("=" * 55)
-print("  LOAD DATA KE MONGODB - Kelompok 8")
-print("=" * 55)
+JSON_DIR = os.path.join("data", "source_json")
 
-# Koneksi
-try:
-    client = MongoClient(MONGO_HOST, MONGO_PORT, serverSelectionTimeoutMS=5000)
-    client.server_info()
-    print(f"\n  [OK] Koneksi ke MongoDB berhasil")
-    print(f"       {MONGO_HOST}:{MONGO_PORT}")
-except Exception as e:
-    print(f"\n  [ERROR] Gagal konek ke MongoDB: {e}")
-    print(f"  Pastikan MongoDB berjalan: mongod --dbpath /data/db")
-    sys.exit(1)
 
-db         = client[MONGO_DATABASE]
-collection = db[MONGO_COLLECTION]
+def main():
+    print("=" * 50)
+    print("  Load MongoDB — Gojek DWH")
+    print("=" * 50)
 
-# Baca JSON
-json_path = f"{DATA_DIR}/app_events.json"
-if not os.path.exists(json_path):
-    print(f"\n  [ERROR] File tidak ditemukan: {json_path}")
-    print(f"  Jalankan generate_data.py terlebih dahulu!")
-    sys.exit(1)
+    filepath = os.path.join(JSON_DIR, "app_events.json")
+    with open(filepath, "r", encoding="utf-8") as f:
+        events = json.load(f)
 
-with open(json_path, "r", encoding="utf-8") as f:
-    events = json.load(f)
+    print(f"  Loaded {len(events):,} documents dari {filepath}")
 
-print(f"\n  [OK] Membaca {len(events):,} events dari {json_path}")
+    client = MongoClient(MONGO_URI)
+    db     = client[DB_NAME]
+    col    = db[COLLECTION]
 
-# Drop collection lama, insert ulang
-collection.drop()
-print(f"  [OK] Collection lama dihapus, insert ulang...")
+    # Drop collection lama agar bisa di-reload
+    col.drop()
+    print(f"  Existing collection '{COLLECTION}' dropped.")
 
-# Insert dalam batch
-BATCH_SIZE = 1000
-total_inserted = 0
-for i in range(0, len(events), BATCH_SIZE):
-    batch = events[i:i+BATCH_SIZE]
-    try:
-        result = collection.insert_many(batch, ordered=False)
-        total_inserted += len(result.inserted_ids)
-    except BulkWriteError as bwe:
-        total_inserted += bwe.details.get("nInserted", 0)
+    # Insert dalam batch
+    BATCH = 1000
+    inserted = 0
+    for i in range(0, len(events), BATCH):
+        batch = events[i: i + BATCH]
+        try:
+            result = col.insert_many(batch, ordered=False)
+            inserted += len(result.inserted_ids)
+        except BulkWriteError as bwe:
+            # Beberapa dokumen mungkin gagal karena _id duplikat (jika ada)
+            inserted += bwe.details.get("nInserted", 0)
+            print(f"  ⚠  BulkWriteError di batch {i//BATCH}: {bwe.details['nInserted']} inserted")
 
-# Buat index
-collection.create_index([("trip_id",   ASCENDING)])
-collection.create_index([("event_type",ASCENDING)])
-collection.create_index([("user_id",   ASCENDING)])
-print(f"  [OK] Index dibuat pada: trip_id, event_type, user_id")
+    # Buat index untuk performa query
+    col.create_index([("trip_id",    ASCENDING)])
+    col.create_index([("event_id",   ASCENDING)])
+    col.create_index([("event_type", ASCENDING)])
+    print(f"  Index dibuat: trip_id, event_id, event_type")
 
-print(f"\n  [OK] Total inserted: {total_inserted:,} documents")
-print(f"       Database   : {MONGO_DATABASE}")
-print(f"       Collection : {MONGO_COLLECTION}")
+    # Verifikasi
+    count = col.count_documents({})
+    print(f"\n  ✅  MongoDB load selesai!")
+    print(f"  Total dokumen di collection '{COLLECTION}': {count:,}")
 
-# Verifikasi
-count = collection.count_documents({})
-sample = collection.find_one()
-print(f"\n  Verifikasi:")
-print(f"    Total dokumen  : {count:,}")
-print(f"    Contoh dokumen : {json.dumps(sample, default=str, ensure_ascii=False)[:200]}")
+    # Sample dokumen
+    sample = col.find_one({}, {"_id": 0})
+    print(f"\n  Sample dokumen:\n  {json.dumps(sample, indent=4, default=str)}")
 
-# Distribusi event_type
-print(f"\n  Distribusi event_type:")
-pipeline = [{"$group": {"_id": "$event_type", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}}]
-for doc in collection.aggregate(pipeline):
-    print(f"    {doc['_id']:<30} : {doc['count']:,}")
+    client.close()
 
-print(f"\n  [DONE] Load ke MongoDB selesai!")
-print(f"  Cek di MongoDB Compass: {MONGO_DATABASE} > {MONGO_COLLECTION}")
-print("=" * 55)
 
-client.close()
+if __name__ == "__main__":
+    main()
